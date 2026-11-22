@@ -4,6 +4,8 @@ A phone app (PWA) to keep track of prayer points.
 A PWA is a web app that you add to the iPhone Home Screen.
 It works offline. Your data stays on your phone.
 
+**Open the app:** https://nrb-digital-tools.github.io/prayer-list-app/
+
 ## How the daily list works
 Each point has a priority and a target gap (for example, every 7 days).
 When you start a session, the app gives each point a score:
@@ -33,23 +35,18 @@ You can change the points per day, neglect slots, hard limit, and weights in Set
 3. Run `npm run dev`. Open the address it prints.
 4. Run `npm test` to run the tests.
 
-## Put it on your iPhone (GitHub Pages)
-1. Make a new GitHub repo. Push this folder to the `main` branch.
-2. In the repo, open Settings > Pages. Set "Source" to "GitHub Actions".
-3. Wait for the "Deploy to GitHub Pages" action to finish (about 1 minute).
-4. On your iPhone, open `https://<your-user>.github.io/<repo-name>/` in Safari.
-5. Tap Share, then "Add to Home Screen".
-6. Open the app from the Home Screen icon. **Enter your real points in this app, not in Safari.**
+## Put it on your iPhone
+1. On your iPhone, open https://nrb-digital-tools.github.io/prayer-list-app/ in Safari.
+2. Tap Share, then "Add to Home Screen".
+3. Open the app from the Home Screen icon. **Enter your real points in this app, not in Safari.**
    Safari and the Home Screen app keep separate data.
+
+## Deploy
+Each push to `main` builds the app and publishes it to GitHub Pages (`.github/workflows/deploy.yml`).
+It takes about 2 minutes. The repo setting Settings > Pages > Source must be "GitHub Actions".
 
 ## Keep your data safe
 - Your data is only on your phone. Deleting the Home Screen icon can erase it.
 - The app reminds you to back up when your last backup is over 7 days old.
 - Tap "Back up now". Choose "Save to Files" (iCloud Drive is a good place).
 - To restore, use "Restore from backup" on the Today screen (when empty) or in Settings.
-
-## Hosting on HiPerGator
-This app does not need HiPerGator. It runs in the browser.
-
-## Later
-Cloud sync (for example, Supabase) is planned. Every record already has an `id` and an `updatedAt` time to make this easy.
