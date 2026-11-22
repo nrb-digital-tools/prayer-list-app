@@ -7,7 +7,9 @@ import {
   deleteUpdate,
   getPoint,
   listPoints,
+  listAnsweredUpdates,
   listUpdates,
+  setUpdateAnswered,
   markAnswered,
   markPrayed,
   reopenPoint,
@@ -17,7 +19,7 @@ import { exportBackup, importBackup, validateBackup } from "./backup";
 
 describe("list points", () => {
   it("shows the next item each time it is prayed, then wraps", async () => {
-    const p = await createPoint({ title: "Communities", priority: 2, cadenceDays: 7, items: ["A", "B", "C"], itemIndex: 0 });
+    const p = await createPoint({ title: "Communities", cadenceDays: 7, items: ["A", "B", "C"], itemIndex: 0 });
     const seen: (string | undefined)[] = [];
     for (let i = 0; i < 4; i++) {
       const cur = (await getPoint(p.id))!;
@@ -28,7 +30,7 @@ describe("list points", () => {
     expect(currentItem((await getPoint(p.id))!)?.text).toBe("B");
   });
   it("does not change a point without a list", async () => {
-    const p = await createPoint({ title: "Plain", priority: 2, cadenceDays: 7 });
+    const p = await createPoint({ title: "Plain", cadenceDays: 7 });
     await markPrayed(p.id);
     expect((await getPoint(p.id))!.itemIndex).toBeUndefined();
   });
@@ -36,7 +38,7 @@ describe("list points", () => {
 
 describe("db", () => {
   it("creates a point, prays for it, and keeps updates", async () => {
-    const p = await createPoint({ title: "Missionary A", priority: 3, cadenceDays: 7 });
+    const p = await createPoint({ title: "Missionary A", cadenceDays: 7 });
     await addUpdate(p.id, "Arrived on the field");
     await addUpdate(p.id, "Visa approved");
     await markPrayed(p.id, p.createdAt + 5000);
@@ -45,7 +47,7 @@ describe("db", () => {
   });
 
   it("keeps every update until one is removed, newest first", async () => {
-    const p = await createPoint({ title: "Missionary B", priority: 2, cadenceDays: 7 });
+    const p = await createPoint({ title: "Missionary B", cadenceDays: 7 });
     const a = await addUpdate(p.id, "First");
     await new Promise((r) => setTimeout(r, 2));
     const b = await addUpdate(p.id, "Second");
@@ -60,7 +62,7 @@ describe("db", () => {
   });
 
   it("answers and reopens a point", async () => {
-    const p = await createPoint({ title: "Healing", priority: 2, cadenceDays: 3 });
+    const p = await createPoint({ title: "Healing", cadenceDays: 3 });
     await markAnswered(p.id);
     expect((await getPoint(p.id))!.status).toBe("answered");
     await reopenPoint(p.id);
@@ -72,7 +74,7 @@ describe("db", () => {
   it("round-trips a backup", async () => {
     const before = await exportBackup();
     const json = JSON.parse(JSON.stringify(before));
-    const extra = await createPoint({ title: "Temp", priority: 1, cadenceDays: 30 });
+    const extra = await createPoint({ title: "Temp", cadenceDays: 30 });
     await deletePoint(extra.id);
     await importBackup(json);
     const after = await exportBackup();
@@ -83,5 +85,21 @@ describe("db", () => {
 
   it("rejects a file that is not a backup", () => {
     expect(() => validateBackup({ hello: "world" })).toThrow();
+  });
+});
+
+describe("answered updates", () => {
+  it("marks an update answered, lists it, and can undo it", async () => {
+    const p = await createPoint({ title: "Answered test", cadenceDays: 7 });
+    const a = await addUpdate(p.id, "Open one");
+    const b = await addUpdate(p.id, "Answered one");
+    await setUpdateAnswered(b.id, 123);
+    const all = await listUpdates(p.id);
+    expect(all.find((u) => u.id === b.id)!.answeredAt).toBe(123);
+    expect(all.find((u) => u.id === a.id)!.answeredAt).toBeUndefined();
+    expect((await listAnsweredUpdates()).map((u) => u.id)).toContain(b.id);
+    await setUpdateAnswered(b.id, undefined);
+    expect((await listAnsweredUpdates()).map((u) => u.id)).not.toContain(b.id);
+    expect(await listUpdates(p.id)).toHaveLength(2);
   });
 });

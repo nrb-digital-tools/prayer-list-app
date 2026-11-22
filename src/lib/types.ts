@@ -1,7 +1,6 @@
 // Data types. All times are milliseconds since 1970 (Date.now()).
 // Every record has an id and updatedAt, so sync can be added later.
 
-export type Priority = 1 | 2 | 3;
 export type Theme = "system" | "light" | "dark";
 export type PointStatus = "active" | "answered" | "archived";
 
@@ -10,14 +9,15 @@ export interface Point {
   title: string;
   details?: string;
   categoryId?: string;
-  priority: Priority;
+  priority?: number; // old data only: priority was removed. Ignored.
   cadenceDays: number; // target gap between prayers
   status: PointStatus;
   createdAt: number;
   updatedAt: number;
   lastPrayedAt?: number; // empty until the first prayer (a new point is due at once)
-  snoozedUntil?: number;
-  urgentUntil?: number;
+  snoozedUntil?: number; // old data only: snooze was removed. Ignored.
+  urgentUntil?: number; // urgent until this time
+  urgentNoEnd?: boolean; // urgent until the user removes it
   answeredAt?: number;
   daily?: boolean; // guaranteed daily: shows every day and is not part of the rotation
   items?: string[]; // optional list: each time the point comes up, the next item shows
@@ -30,6 +30,7 @@ export interface PointUpdate {
   text: string;
   createdAt: number;
   updatedAt: number;
+  answeredAt?: number; // set when marked answered: it leaves the card but is kept
 }
 
 export interface Category {
@@ -51,7 +52,6 @@ export interface Settings {
   sessionSize: number;
   neglectSlots: number;
   maxGapDays: number; // hard ceiling: older points are forced into the session
-  priorityWeights: Record<Priority, number>;
   urgencyBoost: number;
   ratioCap: number; // limits how large one point's ratio can grow
   theme: Theme;
@@ -61,7 +61,6 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionSize: 8,
   neglectSlots: 2,
   maxGapDays: 60,
-  priorityWeights: { 1: 0.6, 2: 1, 3: 1.6 },
   urgencyBoost: 3,
   ratioCap: 10,
   theme: "system",

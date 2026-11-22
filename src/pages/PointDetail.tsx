@@ -11,9 +11,13 @@ import {
   markPrayed,
   reopenPoint,
   savePoint,
+  setUpdateAnswered,
 } from "../lib/db";
 import { currentItem } from "../lib/items";
-import { cadenceLabel, dateLabel, lastPrayedLabel, PRIORITY_LABELS } from "../lib/format";
+import { cadenceLabel, dateLabel, lastPrayedLabel } from "../lib/format";
+import { urgentLabel } from "../lib/urgent";
+import { UrgentControl } from "../components/UrgentControl";
+import { UpdateEntry } from "../components/UpdateEntry";
 import type { Category, Point, PointUpdate } from "../lib/types";
 
 const DAY = 86_400_000;
@@ -36,8 +40,7 @@ export function PointDetail({ id, back, go, from }: { id: string; back: () => vo
   if (!point) return <p class="muted">Loading…</p>;
 
   const now = Date.now();
-  const urgent = !!point.urgentUntil && point.urgentUntil > now;
-  const snoozed = !!point.snoozedUntil && point.snoozedUntil > now;
+  const urgent = urgentLabel(point, now);
   const cat = cats.find((c) => c.id === point.categoryId);
   const item = currentItem(point);
 
@@ -53,6 +56,19 @@ export function PointDetail({ id, back, go, from }: { id: string; back: () => vo
     await load();
   }
 
+  // Open updates show on the card. Answered updates are kept here, newest answer first.
+  const openUpdates = updates.filter((u) => !u.answeredAt);
+  const answeredUpdates = updates.filter((u) => u.answeredAt).sort((a, b) => b.answeredAt! - a.answeredAt!);
+  const entry = (u: PointUpdate) => (
+    <UpdateEntry
+      key={u.id}
+      update={u}
+      onAnswered={async () => { await setUpdateAnswered(u.id, Date.now()); await load(); }}
+      onReopen={async () => { await setUpdateAnswered(u.id, undefined); await load(); }}
+      onDelete={async () => { await deleteUpdate(u.id); await load(); }}
+    />
+  );
+
   async function remove() {
     if (!confirm("Delete this point and all its updates? This cannot be undone.")) return;
     await deletePoint(id);
@@ -66,10 +82,8 @@ export function PointDetail({ id, back, go, from }: { id: string; back: () => vo
         <div class="chips">
           {point.daily && <span class="chip">Daily</span>}
           {cat && <span class="chip">{cat.name}</span>}
-          {!point.daily && <span class="chip">{PRIORITY_LABELS[point.priority]} priority</span>}
           {point.status !== "active" && <span class="chip">{point.status}</span>}
-          {urgent && <span class="chip urgent">Urgent until {dateLabel(point.urgentUntil!)}</span>}
-          {snoozed && <span class="chip">Snoozed until {dateLabel(point.snoozedUntil!)}</span>}
+          {urgent && <span class="chip urgent">{urgent}</span>}
         </div>
         <h1 class="point-title">{point.title}</h1>
         {point.details && <p class="details">{point.details}</p>}
@@ -111,16 +125,14 @@ export function PointDetail({ id, back, go, from }: { id: string; back: () => vo
         <h2>Updates</h2>
         <textarea rows={2} placeholder="Add an update" value={note} onInput={(e) => setNote((e.target as HTMLTextAreaElement).value)} />
         <button onClick={saveNote}>Add update</button>
-        {updates.length === 0 && <p class="muted small">No updates yet.</p>}
-        {updates.map((u) => (
-          <div key={u.id} class="update">
-            <div class="small muted row between">
-              <span>{dateLabel(u.createdAt)}</span>
-              <button class="link small" onClick={async () => { if (confirm("Remove this update?")) { await deleteUpdate(u.id); await load(); } }}>Remove</button>
-            </div>
-            <p>{u.text}</p>
-          </div>
-        ))}
+        {openUpdates.length === 0 && <p class="muted small">No open updates.</p>}
+        {openUpdates.map((u) => entry(u))}
+        {answeredUpdates.length > 0 && (
+          <>
+            <h3>Answered ({answeredUpdates.length})</h3>
+            {answeredUpdates.map((u) => entry(u))}
+          </>
+        )}
       </div>
 
       <div class="card stack">
@@ -128,19 +140,7 @@ export function PointDetail({ id, back, go, from }: { id: string; back: () => vo
         {point.status === "active" ? (
           <>
             <div class="row wrap">
-              {urgent ? (
-                <button onClick={() => patch({ urgentUntil: undefined })}>Clear urgent</button>
-              ) : (
-                <button onClick={() => patch({ urgentUntil: now + 7 * DAY })}>Urgent for 7 days</button>
-              )}
-              {snoozed ? (
-                <button onClick={() => patch({ snoozedUntil: undefined })}>Wake up now</button>
-              ) : (
-                <>
-                  <button onClick={() => patch({ snoozedUntil: now + 7 * DAY })}>Snooze 1 week</button>
-                  <button onClick={() => patch({ snoozedUntil: now + 30 * DAY })}>Snooze 1 month</button>
-                </>
-              )}
+              <UrgentControl point={point} save={patch} />
             </div>
             <div class="row wrap">
               <button onClick={async () => { await markAnswered(id); await load(); }}>Mark answered</button>

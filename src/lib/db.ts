@@ -47,7 +47,7 @@ export async function getPoint(id: string): Promise<Point | undefined> {
 }
 
 export async function createPoint(
-  input: Pick<Point, "title" | "priority" | "cadenceDays"> & Partial<Point>,
+  input: Pick<Point, "title" | "cadenceDays"> & Partial<Point>,
 ): Promise<Point> {
   const now = Date.now();
   const point: Point = {
@@ -126,6 +126,19 @@ export async function deleteUpdate(id: string): Promise<void> {
   await (await getDB()).delete("updates", id);
 }
 
+// Mark an update answered (at = time), or not answered again (at = undefined).
+export async function setUpdateAnswered(id: string, at: number | undefined): Promise<void> {
+  const db = await getDB();
+  const u = await db.get("updates", id);
+  if (u) await db.put("updates", { ...u, answeredAt: at, updatedAt: Date.now() });
+}
+
+// Every answered update, newest answer first.
+export async function listAnsweredUpdates(): Promise<PointUpdate[]> {
+  const all = await (await getDB()).getAll("updates");
+  return all.filter((u) => u.answeredAt).sort((a, b) => b.answeredAt! - a.answeredAt!);
+}
+
 // ---- Categories ----
 export async function listCategories(): Promise<Category[]> {
   const all = await (await getDB()).getAll("categories");
@@ -149,11 +162,9 @@ export async function deleteCategory(id: string): Promise<void> {
 // ---- Settings and session snapshot (in the "meta" store) ----
 export async function getSettings(): Promise<Settings> {
   const saved = (await (await getDB()).get("meta", "settings")) as Partial<Settings> | undefined;
-  return {
-    ...DEFAULT_SETTINGS,
-    ...saved,
-    priorityWeights: { ...DEFAULT_SETTINGS.priorityWeights, ...saved?.priorityWeights },
-  };
+  // Drop settings from older versions (priority weights were removed).
+  const { priorityWeights: _old, ...rest } = (saved ?? {}) as Partial<Settings> & { priorityWeights?: unknown };
+  return { ...DEFAULT_SETTINGS, ...rest };
 }
 
 export async function saveSettings(s: Settings): Promise<void> {

@@ -1,15 +1,14 @@
 import { useEffect, useState } from "preact/hooks";
 import { addCategory, createPoint, getPoint, listCategories, savePoint } from "../lib/db";
-import { CADENCE_PRESETS, PRIORITY_LABELS } from "../lib/format";
+import { CADENCE_PRESETS } from "../lib/format";
 import { parseItems, reindex } from "../lib/items";
-import type { Category, Priority } from "../lib/types";
+import type { Category } from "../lib/types";
 
 const CUSTOM = "custom";
 
 export function PointForm({ id, done }: { id?: string; done: (id?: string) => void }) {
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
-  const [priority, setPriority] = useState<Priority>(2);
   const [cadence, setCadence] = useState<string>("7");
   const [custom, setCustom] = useState("10");
   const [categoryId, setCategoryId] = useState("");
@@ -26,7 +25,6 @@ export function PointForm({ id, done }: { id?: string; done: (id?: string) => vo
       if (!p) return;
       setTitle(p.title);
       setDetails(p.details ?? "");
-      setPriority(p.priority);
       setCategoryId(p.categoryId ?? "");
       setItemsText((p.items ?? []).join("\n"));
       setDaily(!!p.daily);
@@ -52,7 +50,6 @@ export function PointForm({ id, done }: { id?: string; done: (id?: string) => vo
     const fields = {
       title: title.trim(),
       details: details.trim() || undefined,
-      priority,
       cadenceDays: Math.round(cadenceDays),
       categoryId: catId,
       daily: daily || undefined,
@@ -110,14 +107,6 @@ export function PointForm({ id, done }: { id?: string; done: (id?: string) => vo
       </label>
       {!daily && (
         <>
-      <label>
-        Priority
-        <select value={priority} onChange={(e) => setPriority(Number((e.target as HTMLSelectElement).value) as Priority)}>
-          {([1, 2, 3] as const).map((p) => (
-            <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
-          ))}
-        </select>
-      </label>
       <label>
         How often?
         <select value={cadence} onChange={(e) => setCadence((e.target as HTMLSelectElement).value)}>

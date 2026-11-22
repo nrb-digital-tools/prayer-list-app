@@ -9,15 +9,20 @@ import {
   listPoints,
   listUpdates,
   deleteUpdate,
+  setUpdateAnswered,
   markPrayed,
   saveSession,
   type SessionSnapshot,
+  savePoint,
 } from "../lib/db";
 import { buildSession, nextExtra } from "../lib/scoring";
 import { streaks } from "../lib/stats";
 import { BackupBanner } from "../components/BackupBanner";
+import { UrgentControl } from "../components/UrgentControl";
+import { UpdateEntry } from "../components/UpdateEntry";
+import { urgentLabel } from "../lib/urgent";
 import { currentItem } from "../lib/items";
-import { cadenceLabel, dateLabel, lastPrayedLabel, sameLocalDay } from "../lib/format";
+import { cadenceLabel, lastPrayedLabel, sameLocalDay } from "../lib/format";
 import type { Category, Point, PointUpdate, PrayerLog } from "../lib/types";
 
 // Time on a card counts as prayer time, up to this much per card.
@@ -114,7 +119,8 @@ export function Today({ go }: { go: Go }) {
     setShowAll(false);
     setAdding(false);
     setNote("");
-    if (current) listUpdates(current.id).then(setUpdates);
+    // Only open updates show on the card. Answered ones are kept on the point page and the Answered tab.
+    if (current) listUpdates(current.id).then((u) => setUpdates(u.filter((x) => !x.answeredAt)));
   }, [current?.id]);
 
   async function update(next: SessionSnapshot) {
@@ -163,6 +169,13 @@ export function Today({ go }: { go: Go }) {
     await update({ ...session, keepGoing: false, ids: session.ids.filter((id) => id !== current.id) });
   }
 
+  // Save a change to the point on screen (used by the Urgent control).
+  async function saveCurrent(changes: Partial<Point>) {
+    if (!current) return;
+    await savePoint({ ...current, ...changes });
+    await reloadPoints();
+  }
+
   async function saveNote() {
     if (!current || !note.trim()) return;
     const u = await addUpdate(current.id, note.trim());
@@ -171,9 +184,12 @@ export function Today({ go }: { go: Go }) {
     setAdding(false);
   }
 
-  // Updates stay on the card until you remove them here or on the point page.
-  async function removeUpdate(u: PointUpdate) {
-    if (!confirm("Remove this update?")) return;
+  // Updates stay on the card until you remove them: mark answered (kept) or delete (gone).
+  async function answerUpdate(u: PointUpdate) {
+    await setUpdateAnswered(u.id, Date.now());
+    setUpdates((list) => list.filter((x) => x.id !== u.id));
+  }
+  async function deleteOne(u: PointUpdate) {
     await deleteUpdate(u.id);
     setUpdates((list) => list.filter((x) => x.id !== u.id));
   }
@@ -236,7 +252,7 @@ export function Today({ go }: { go: Go }) {
     );
   }
 
-  const urgent = current.urgentUntil && current.urgentUntil > Date.now();
+  const urgent = urgentLabel(current, Date.now());
   const item = currentItem(current);
   const index = session.ids.indexOf(current.id);
   const isExtra = session.extraFrom !== undefined && index >= session.extraFrom;
@@ -252,8 +268,7 @@ export function Today({ go }: { go: Go }) {
         <div class="chips">
           {current.daily && <span class="chip">Daily</span>}
           {cat && <span class="chip">{cat.name}</span>}
-          {urgent && <span class="chip urgent">Urgent</span>}
-          {!current.daily && current.priority === 3 && <span class="chip">High priority</span>}
+          {urgent && <span class="chip urgent">{urgent}</span>}
         </div>
         <h2 class="point-title">{current.title}</h2>
         {current.details && <p class="details">{current.details}</p>}
@@ -267,13 +282,7 @@ export function Today({ go }: { go: Go }) {
           <div class="updates">
             <div class="small muted">{updates.length === 1 ? "1 update" : `${updates.length} updates`} · newest first</div>
             {(showAll ? updates : updates.slice(0, SHOWN_UPDATES)).map((u) => (
-              <div key={u.id} class="latest">
-                <div class="small muted row between">
-                  <span>{dateLabel(u.createdAt)}</span>
-                  <button class="link small" onClick={() => removeUpdate(u)}>Remove</button>
-                </div>
-                <p>{u.text}</p>
-              </div>
+              <UpdateEntry key={u.id} update={u} onAnswered={() => answerUpdate(u)} onReopen={() => {}} onDelete={() => deleteOne(u)} />
             ))}
             {updates.length > SHOWN_UPDATES && (
               <button class="link small" onClick={() => setShowAll(!showAll)}>
@@ -305,6 +314,7 @@ export function Today({ go }: { go: Go }) {
             <button class="primary big-btn" onClick={prayed}>Prayed ✓</button>
             <button onClick={later}>Later</button>
             <button onClick={() => setAdding(true)}>+ Update</button>
+            <UrgentControl point={current} save={saveCurrent} />
             <button onClick={() => go({ page: "detail", id: current.id, from: "today" })}>Open</button>
           </div>
         )}

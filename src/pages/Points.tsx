@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { Go } from "../App";
 import { listCategories, listPoints } from "../lib/db";
 import { cadenceLabel, lastPrayedLabel } from "../lib/format";
-import { lastPrayed } from "../lib/scoring";
+import { isUrgent, lastPrayed } from "../lib/scoring";
 import { currentItem } from "../lib/items";
 import type { Category, Point } from "../lib/types";
 
@@ -53,7 +53,7 @@ export function Points({ go }: { go: Go }) {
               <span class="small muted">
                 {lastPrayedLabel(p.lastPrayedAt)} · {p.daily ? "every day" : cadenceLabel(p.cadenceDays).toLowerCase()}
                 {currentItem(p) ? ` · list ${currentItem(p)!.index + 1}/${currentItem(p)!.total}` : ""}
-                {p.snoozedUntil && p.snoozedUntil > Date.now() ? " · snoozed" : ""}
+                {isUrgent(p, Date.now()) ? " · urgent" : ""}
               </span>
             </button>
           </li>

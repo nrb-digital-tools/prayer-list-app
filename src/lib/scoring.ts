@@ -9,8 +9,13 @@ export function lastPrayed(p: Point): number {
   return p.lastPrayedAt ?? p.createdAt - p.cadenceDays * DAY;
 }
 
-export function isEligible(p: Point, now: number): boolean {
-  return p.status === "active" && !(p.snoozedUntil && p.snoozedUntil > now);
+export function isEligible(p: Point): boolean {
+  return p.status === "active";
+}
+
+// Urgent until a date, or until the user removes it.
+export function isUrgent(p: Point, now: number): boolean {
+  return !!p.urgentNoEnd || (!!p.urgentUntil && p.urgentUntil > now);
 }
 
 // How overdue a point is. 1.0 means "exactly due". Not capped.
@@ -21,8 +26,7 @@ export function rawRatio(p: Point, now: number): number {
 
 export function score(p: Point, now: number, s: Settings): number {
   const ratio = Math.min(rawRatio(p, now), s.ratioCap);
-  const boost = p.urgentUntil && p.urgentUntil > now ? s.urgencyBoost : 0;
-  return ratio * s.priorityWeights[p.priority] + boost;
+  return ratio + (isUrgent(p, now) ? s.urgencyBoost : 0);
 }
 
 // Oldest first. Ties go to the smaller id, so the order is stable.
@@ -33,9 +37,9 @@ function byOldest(a: Point, b: Point): number {
 // The rotation (the algorithm). Order of picks:
 //   1. Forced: points not prayed for maxGapDays or more (oldest first).
 //   2. Top points by score.
-//   3. Neglect ("wild card") slots: highest unweighted ratio, ignoring priority.
+//   3. Neglect ("wild card") slots: highest ratio, ignoring the urgent boost.
 function pickRotation(points: Point[], s: Settings, now: number): string[] {
-  const eligible = points.filter((p) => isEligible(p, now));
+  const eligible = points.filter((p) => isEligible(p));
   const chosen: Point[] = [];
   const taken = new Set<string>();
   const take = (p: Point) => {
@@ -82,7 +86,7 @@ function pickRotation(points: Point[], s: Settings, now: number): string[] {
 // Daily points are NOT part of the rotation and do not use up its slots.
 export function buildSession(points: Point[], s: Settings, now: number): string[] {
   const dailies = points
-    .filter((p) => p.daily && isEligible(p, now) && !(p.lastPrayedAt && sameLocalDay(p.lastPrayedAt, now)))
+    .filter((p) => p.daily && isEligible(p) && !(p.lastPrayedAt && sameLocalDay(p.lastPrayedAt, now)))
     .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
     .map((p) => p.id);
   const rotation = pickRotation(points.filter((p) => !p.daily), s, now);
@@ -90,7 +94,7 @@ export function buildSession(points: Point[], s: Settings, now: number): string[
 }
 
 // "Keep praying": the next single point from the rotation, skipping ids already shown.
-// Every 4th extra card is a neglect (wild card) pick, so low-priority points still get a turn.
+// Every 4th extra card is a neglect (wild card) pick: the most overdue point, ignoring the urgent boost.
 export function nextExtra(
   points: Point[],
   s: Settings,

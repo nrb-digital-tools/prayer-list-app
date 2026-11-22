@@ -34,4 +34,3 @@ export function lastPrayedLabel(lastPrayedAt: number | undefined): string {
   return lastPrayedAt === undefined ? "Never prayed yet" : `Last prayed ${ago(lastPrayedAt)}`;
 }
 
-export const PRIORITY_LABELS = { 1: "Low", 2: "Normal", 3: "High" } as const;

@@ -180,3 +180,15 @@ label.check.box input { margin-top: 4px; width: 20px; height: 20px; }
 table.data { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 table.data th, table.data td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); }
 table.data th:not(:first-child), table.data td:not(:first-child) { text-align: right; }
+
+/* Urgent control (Today card and point page) */
+.urgent-btn.on { color: var(--urgent); border-color: var(--urgent); font-weight: 600; }
+.urgent-panel { flex: 1 1 100%; background: var(--bg); border: 1px solid var(--urgent); border-radius: 12px; padding: 12px; }
+.urgent-panel .pick { padding: 8px 12px; min-height: 40px; font-size: 0.95rem; }
+.urgent-panel .pick.on { background: var(--urgent); border-color: var(--urgent); color: var(--card); font-weight: 600; }
+
+/* Updates: remove choices and answered updates */
+.remove-choices { margin-top: 8px; }
+.remove-choices button { padding: 8px 12px; min-height: 40px; font-size: 0.95rem; }
+.latest.answered { border-left-color: var(--urgent); }
+section > h2 { margin: 18px 0 6px; }

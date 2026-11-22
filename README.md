@@ -7,18 +7,18 @@ It works offline. Your data stays on your phone.
 **Open the app:** https://nrb-digital-tools.github.io/prayer-list-app/
 
 ## How the daily list works
-Each point has a priority and a target gap (for example, every 7 days).
+Each point has a target gap (for example, every 7 days).
 When you start a session, the app gives each point a score:
 
-    score = (time since prayed / target gap) x priority weight + urgent boost
+    score = (time since prayed / target gap) + urgent boost
 
 - The top points by score fill most cards.
-- A few "neglect" cards ignore priority. They pick the points that are most overdue.
+- A few "wild card" cards ignore the urgent boost. They pick the points that are most overdue.
 - A hard limit (default 60 days) forces any very old point into the session.
 - "Later" does not reset the score. The point comes back.
 - "Prayed" resets the score to 0.
 
-You can change the points per day, neglect slots, hard limit, and weights in Settings.
+You can change the points per day, wild card slots, and hard limit in Settings.
 
 ## Other features
 - **List points.** Give a point a list (one item per line, for example a list of communities).
@@ -28,6 +28,9 @@ You can change the points per day, neglect slots, hard limit, and weights in Set
 - **Keep praying.** When the session is done, tap "Keep praying" to get one more point at a time.
 - **Stats and streak.** Minutes per day, week, and month, and a daily streak. Minutes count while a card is open (up to 15 min per card).
 - **Updates.** Add dated notes to one point, so you do not need a new point each time.
+  All updates stay on the card until you remove them. Remove asks: "Answered" (kept, and listed on the Answered tab) or "Delete".
+- **Urgent.** Tap "Urgent" on a card or on the point page. Choose how long: 7 days (default), 3 days, 2 weeks, 1 month,
+  another number of days, or "Until I remove it". An urgent point comes up every day until it ends.
 
 ## Run it on your computer
 1. Install Node.js 20 or newer.

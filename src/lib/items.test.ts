@@ -5,7 +5,6 @@ import type { Point } from "./types";
 const base: Point = {
   id: "a",
   title: "Communities",
-  priority: 2,
   cadenceDays: 7,
   status: "active",
   createdAt: 0,

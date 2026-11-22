@@ -2,8 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { addCategory, deleteCategory, getSettings, listCategories, saveSession, saveSettings } from "../lib/db";
 import { applyTheme } from "../lib/theme";
 import { importBackup, shareBackup } from "../lib/backup";
-import { PRIORITY_LABELS } from "../lib/format";
-import { DEFAULT_SETTINGS, type Category, type Priority, type Settings, type Theme } from "../lib/types";
+import { DEFAULT_SETTINGS, type Category, type Settings, type Theme } from "../lib/types";
 
 export function SettingsPage() {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS);
@@ -11,9 +10,15 @@ export function SettingsPage() {
   const [newCat, setNewCat] = useState("");
   const [msg, setMsg] = useState("");
   const [persisted, setPersisted] = useState<boolean>();
+  // Show the fields only after the saved settings load. Otherwise a change typed
+  // in that first moment is overwritten by the load and lost.
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    getSettings().then(setS);
+    getSettings().then((saved) => {
+      setS(saved);
+      setLoaded(true);
+    });
     listCategories().then(setCats);
     navigator.storage?.persisted?.().then(setPersisted).catch(() => {});
   }, []);
@@ -58,6 +63,8 @@ export function SettingsPage() {
     }
   }
 
+  if (!loaded) return <p class="muted">Loading…</p>;
+
   return (
     <section class="stack">
       <h1>Settings</h1>
@@ -81,22 +88,13 @@ export function SettingsPage() {
           <input type="number" min={1} value={s.sessionSize} onChange={(e) => change({ ...s, sessionSize: Math.round(num((e.target as HTMLInputElement).value, 1, s.sessionSize)) })} />
         </label>
         <label>
-          Neglect slots (cards picked by time since prayed, ignoring priority)
+          Wild card slots (the most overdue points, even if other points are urgent)
           <input type="number" min={0} value={s.neglectSlots} onChange={(e) => change({ ...s, neglectSlots: Math.round(num((e.target as HTMLInputElement).value, 0, s.neglectSlots)) })} />
         </label>
         <label>
           Hard limit: always include a point not prayed for this many days
           <input type="number" min={1} value={s.maxGapDays} onChange={(e) => change({ ...s, maxGapDays: Math.round(num((e.target as HTMLInputElement).value, 1, s.maxGapDays)) })} />
         </label>
-        <h3>Priority weights</h3>
-        <div class="row wrap">
-          {([1, 2, 3] as Priority[]).map((p) => (
-            <label key={p} class="grow">
-              {PRIORITY_LABELS[p]}
-              <input type="number" step="0.1" min={0.1} value={s.priorityWeights[p]} onChange={(e) => change({ ...s, priorityWeights: { ...s.priorityWeights, [p]: num((e.target as HTMLInputElement).value, 0.1, s.priorityWeights[p]) } })} />
-            </label>
-          ))}
-        </div>
         <button onClick={() => change({ ...DEFAULT_SETTINGS, theme: s.theme })}>Reset to defaults</button>
       </div>
 
