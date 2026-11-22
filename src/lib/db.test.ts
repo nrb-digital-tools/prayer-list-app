@@ -4,6 +4,7 @@ import {
   addUpdate,
   createPoint,
   deletePoint,
+  deleteUpdate,
   getPoint,
   listPoints,
   listUpdates,
@@ -41,6 +42,21 @@ describe("db", () => {
     await markPrayed(p.id, p.createdAt + 5000);
     expect((await getPoint(p.id))!.lastPrayedAt).toBe(p.createdAt + 5000);
     expect(await listUpdates(p.id)).toHaveLength(2);
+  });
+
+  it("keeps every update until one is removed, newest first", async () => {
+    const p = await createPoint({ title: "Missionary B", priority: 2, cadenceDays: 7 });
+    const a = await addUpdate(p.id, "First");
+    await new Promise((r) => setTimeout(r, 2));
+    const b = await addUpdate(p.id, "Second");
+    await new Promise((r) => setTimeout(r, 2));
+    await addUpdate(p.id, "Third");
+    await markPrayed(p.id, Date.now());
+    await markPrayed(p.id, Date.now() + 1000);
+    expect((await listUpdates(p.id)).map((u) => u.text)).toEqual(["Third", "Second", "First"]);
+    await deleteUpdate(b.id);
+    expect((await listUpdates(p.id)).map((u) => u.text)).toEqual(["Third", "First"]);
+    expect((await listUpdates(p.id)).some((u) => u.id === a.id)).toBe(true);
   });
 
   it("answers and reopens a point", async () => {

@@ -116,7 +116,7 @@ export function PointDetail({ id, back, go, from }: { id: string; back: () => vo
           <div key={u.id} class="update">
             <div class="small muted row between">
               <span>{dateLabel(u.createdAt)}</span>
-              <button class="link small" onClick={async () => { if (confirm("Delete this update?")) { await deleteUpdate(u.id); await load(); } }}>Delete</button>
+              <button class="link small" onClick={async () => { if (confirm("Remove this update?")) { await deleteUpdate(u.id); await load(); } }}>Remove</button>
             </div>
             <p>{u.text}</p>
           </div>

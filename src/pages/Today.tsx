@@ -8,6 +8,7 @@ import {
   listLogs,
   listPoints,
   listUpdates,
+  deleteUpdate,
   markPrayed,
   saveSession,
   type SessionSnapshot,
@@ -46,12 +47,16 @@ async function appendNext(snap: SessionSnapshot): Promise<SessionSnapshot> {
     : { ...snap, extraFrom, keepGoing: false };
 }
 
+// A card shows this many updates at first. "Show all" shows the rest.
+const SHOWN_UPDATES = 3;
+
 export function Today({ go }: { go: Go }) {
   const [session, setSession] = useState<SessionSnapshot>();
   const [points, setPoints] = useState<Map<string, Point>>(new Map());
   const [cats, setCats] = useState<Category[]>([]);
   const [logs, setLogs] = useState<PrayerLog[]>([]);
-  const [latest, setLatest] = useState<PointUpdate>();
+  const [updates, setUpdates] = useState<PointUpdate[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [note, setNote] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -105,10 +110,11 @@ export function Today({ go }: { go: Go }) {
   };
 
   useEffect(() => {
-    setLatest(undefined);
+    setUpdates([]);
+    setShowAll(false);
     setAdding(false);
     setNote("");
-    if (current) listUpdates(current.id).then((u) => setLatest(u[0]));
+    if (current) listUpdates(current.id).then(setUpdates);
   }, [current?.id]);
 
   async function update(next: SessionSnapshot) {
@@ -160,9 +166,16 @@ export function Today({ go }: { go: Go }) {
   async function saveNote() {
     if (!current || !note.trim()) return;
     const u = await addUpdate(current.id, note.trim());
-    setLatest(u);
+    setUpdates((list) => [u, ...list]);
     setNote("");
     setAdding(false);
+  }
+
+  // Updates stay on the card until you remove them here or on the point page.
+  async function removeUpdate(u: PointUpdate) {
+    if (!confirm("Remove this update?")) return;
+    await deleteUpdate(u.id);
+    setUpdates((list) => list.filter((x) => x.id !== u.id));
   }
 
   async function fresh() {
@@ -250,10 +263,23 @@ export function Today({ go }: { go: Go }) {
             <p class="item-text">{item.text}</p>
           </div>
         )}
-        {latest && (
-          <div class="latest">
-            <div class="small muted">Latest update · {dateLabel(latest.createdAt)}</div>
-            <p>{latest.text}</p>
+        {updates.length > 0 && (
+          <div class="updates">
+            <div class="small muted">{updates.length === 1 ? "1 update" : `${updates.length} updates`} · newest first</div>
+            {(showAll ? updates : updates.slice(0, SHOWN_UPDATES)).map((u) => (
+              <div key={u.id} class="latest">
+                <div class="small muted row between">
+                  <span>{dateLabel(u.createdAt)}</span>
+                  <button class="link small" onClick={() => removeUpdate(u)}>Remove</button>
+                </div>
+                <p>{u.text}</p>
+              </div>
+            ))}
+            {updates.length > SHOWN_UPDATES && (
+              <button class="link small" onClick={() => setShowAll(!showAll)}>
+                {showAll ? "Show fewer" : `Show all ${updates.length} updates`}
+              </button>
+            )}
           </div>
         )}
         <p class="small muted">

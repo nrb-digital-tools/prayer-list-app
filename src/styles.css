@@ -1,46 +1,67 @@
-/* Light is the default. Dark applies when the phone is dark (and theme is "system") or when chosen. */
+/* Southwest look: sand, adobe, terracotta, turquoise, ochre.
+   Light is the default. Dark ("desert night") applies when the phone is dark (and theme is "system") or when chosen. */
 :root {
-  --bg: #faf7f2;
-  --card: #ffffff;
-  --text: #22262b;
-  --muted: #6b7280;
-  --accent: #3b5b7a;
-  --accent-text: #ffffff;
-  --border: #e3ddd2;
-  --danger: #b42318;
-  --urgent: #b45309;
+  --bg: #f5ead9;
+  --card: #fffaf2;
+  --text: #3b2a20;
+  --muted: #76604f;
+  --accent: #a6452a;
+  --accent-text: #fff8ef;
+  --sky: #18706d;
+  --tab-on-bg: #f4dccb;
+  --tab-on-text: #8f3a22;
+  --border: #e4cfb2;
+  --danger: #a12a1c;
+  --urgent: #94570a;
+  --sunset: linear-gradient(90deg, #1f7f7c, #d9a441 35%, #c8642f 65%, #8e3b2a);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #14181d;
-    --card: #1e242b;
-    --text: #eceff3;
-    --muted: #9aa4b0;
-    --accent: #7fa6cc;
-    --accent-text: #10151a;
-    --border: #2d353e;
-    --danger: #f97066;
-    --urgent: #f5b361;
+    --bg: #1d1613;
+    --card: #2a201b;
+    --text: #f3e6d6;
+    --muted: #b8a08a;
+    --accent: #e3885b;
+    --accent-text: #1d1613;
+    --sky: #5cc2bd;
+    --tab-on-bg: #4a2c20;
+    --tab-on-text: #f0a079;
+    --border: #45352b;
+    --danger: #ff8b7b;
+    --urgent: #e8b04a;
+    --sunset: linear-gradient(90deg, #5cc2bd, #e8b04a 35%, #e3885b 65%, #b4533a);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #14181d;
-  --card: #1e242b;
-  --text: #eceff3;
-  --muted: #9aa4b0;
-  --accent: #7fa6cc;
-  --accent-text: #10151a;
-  --border: #2d353e;
-  --danger: #f97066;
-  --urgent: #f5b361;
+  --bg: #1d1613;
+  --card: #2a201b;
+  --text: #f3e6d6;
+  --muted: #b8a08a;
+  --accent: #e3885b;
+  --accent-text: #1d1613;
+  --sky: #5cc2bd;
+  --tab-on-bg: #4a2c20;
+  --tab-on-text: #f0a079;
+  --border: #45352b;
+  --danger: #ff8b7b;
+  --urgent: #e8b04a;
+  --sunset: linear-gradient(90deg, #5cc2bd, #e8b04a 35%, #e3885b 65%, #b4533a);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
 body { font: 17px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif; -webkit-text-size-adjust: 100%; }
+/* Warm serif for headings. These fonts come with iPhones, Macs, and Windows, so nothing downloads. */
+h1, h2, .point-title, .tile-value { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; }
+h1 { letter-spacing: 0.01em; }
+/* Thin sunset stripe across the top of the screen. */
+.shell::before {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; height: calc(5px + env(safe-area-inset-top));
+  background: var(--sunset); z-index: 10;
+}
 
 .shell { min-height: 100dvh; display: flex; flex-direction: column; }
 .main {
@@ -72,12 +93,15 @@ p { margin: 8px 0; }
 .banner { border-color: var(--accent); }
 .point-title { font-size: 1.4rem; margin: 6px 0 8px; }
 .details { white-space: pre-wrap; }
-.latest { background: var(--bg); border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
+.latest { background: var(--bg); border-left: 3px solid var(--sky); border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
+.updates { margin: 10px 0; }
+.updates .latest { margin: 6px 0; }
 .latest p, .update p { margin: 4px 0 0; white-space: pre-wrap; }
 .update { border-top: 1px solid var(--border); padding-top: 8px; }
 
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { font-size: 0.75rem; padding: 2px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); }
+.chip:first-child { color: var(--sky); border-color: var(--sky); }
 .chip.urgent { color: var(--urgent); border-color: var(--urgent); }
 
 button, .file-btn, select, input, textarea {
@@ -92,7 +116,7 @@ button, .file-btn { cursor: pointer; display: inline-flex; align-items: center; 
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
 button.big-btn { flex: 1 1 100%; font-size: 1.15rem; padding: 14px; }
 button.danger { color: var(--danger); border-color: var(--danger); }
-button.link { background: none; border: none; padding: 4px 0; min-height: 0; color: var(--accent); }
+button.link { background: none; border: none; padding: 4px 0; min-height: 0; color: var(--sky); }
 .file-btn input { display: none; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
 label.check { flex-direction: row; align-items: center; gap: 6px; }
@@ -107,10 +131,12 @@ label.check { flex-direction: row; align-items: center; gap: 6px; }
   padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 .tab { flex: 1; max-width: 170px; min-width: 0; flex-direction: column; border: none; border-radius: 0; background: none; font-size: 0.72rem; color: var(--muted); gap: 2px; padding: 8px 0; }
-.tab.active { color: var(--accent); font-weight: 600; }
+/* Current tab: a soft terracotta pill behind the icon and label. */
+.tab.active { color: var(--tab-on-text); font-weight: 700; background: var(--tab-on-bg); border-radius: 14px; margin: 5px 3px; padding: 3px 0; }
+.tab.active .tab-icon { transform: scale(1.1); }
 .tab-icon { font-size: 1.3rem; }
 
-.item-box { background: var(--bg); border-left: 4px solid var(--accent); border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
+.item-box { background: var(--bg); border-left: 4px solid var(--sky); border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
 .item-text { font-size: 1.25rem; font-weight: 600; margin: 2px 0 0; white-space: pre-wrap; }
 .list-item.current { border-color: var(--accent); background: var(--bg); font-weight: 600; }
 .seg { display: flex; gap: 0; }
@@ -127,6 +153,7 @@ label.check { flex-direction: row; align-items: center; gap: 6px; }
 @media (max-height: 480px) {
   .tab { flex-direction: row; justify-content: center; gap: 6px; padding: 4px 0; font-size: 0.8rem; }
   .tab-icon { font-size: 1.1rem; }
+  .tab.active { margin: 2px 3px; padding: 2px 0; }
   .main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 
@@ -137,7 +164,7 @@ label.check.box input { margin-top: 4px; width: 20px; height: 20px; }
 .block { display: block; }
 
 .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.tile { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.tile { background: var(--card); border: 1px solid var(--border); border-top: 3px solid var(--accent); border-radius: 14px; padding: 12px 14px; min-width: 0; }
 .tile-value { font-size: 1.5rem; font-weight: 700; overflow-wrap: anywhere; }
 .tile-label { font-size: 0.8rem; color: var(--muted); }
 

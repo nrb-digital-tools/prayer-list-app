@@ -24,7 +24,7 @@ export function applyTheme(t: Theme): void {
     /* ignore */
   }
   const dark = t === "dark" || (t === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#14181d" : "#3b5b7a");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#1d1613" : "#f5ead9");
 }
 
 // Call once at start. Also updates the browser bar colour when the phone switches light/dark.

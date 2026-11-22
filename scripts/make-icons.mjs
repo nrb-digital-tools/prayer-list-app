@@ -1,4 +1,4 @@
-// Makes simple home-screen icons (a cross on a blue square) with no extra packages.
+// Makes the home-screen icons (a southwest sunset with a cross) with no extra packages.
 // Run: node scripts/make-icons.mjs
 import { deflateSync } from "node:zlib";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -18,19 +18,37 @@ function chunk(type, data) {
   const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));
   return Buffer.concat([len, td, crc]);
 }
+// Southwest sunset: sky gradient, a pale sun, dark mesas, and a cross in front of the sun.
+// Each pixel is sampled 4 x 4 times, so the round and sloped edges are smooth.
+const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+function colorAt(u, v) {
+  const dark = [0x4a, 0x24, 0x18];
+  // Cross
+  if ((Math.abs(u - 0.5) <= 0.035 && v >= 0.24 && v <= 0.8) || (Math.abs(v - 0.38) <= 0.035 && Math.abs(u - 0.5) <= 0.15)) return dark;
+  // Ground and mesas (left mesa is higher, right mesa is lower)
+  const left = Math.max(0, Math.min(1, (u - 0.02) / 0.06, (0.42 - u) / 0.08));
+  const right = Math.max(0, Math.min(1, (u - 0.66) / 0.06, (1.0 - u) / 0.06));
+  const top = Math.min(0.8, 0.8 - left * 0.14, 0.8 - right * 0.09);
+  if (v >= top) return dark;
+  // Sun
+  if ((u - 0.5) ** 2 + (v - 0.52) ** 2 <= 0.26 ** 2) return [0xf6, 0xd5, 0x8e];
+  // Sky: ochre at the top, then orange, then terracotta near the ground
+  return v < 0.45 ? mix([0xd9, 0xa4, 0x41], [0xd0, 0x74, 0x34], v / 0.45) : mix([0xd0, 0x74, 0x34], [0xa6, 0x45, 0x2a], (v - 0.45) / 0.35);
+}
 function png(size) {
-  const bg = [0x3b, 0x5b, 0x7a], fg = [0xfa, 0xf7, 0xf2];
-  const bar = Math.round(size * 0.09), armV = Math.round(size * 0.52), armH = Math.round(size * 0.36);
-  const cx = size / 2, cy = size * 0.47;
   const raw = Buffer.alloc((size * 3 + 1) * size);
+  const S = 4;
   for (let y = 0; y < size; y++) {
     raw[y * (size * 3 + 1)] = 0;
     for (let x = 0; x < size; x++) {
-      const inV = Math.abs(x - cx) <= bar / 2 && Math.abs(y - cy) <= armV / 2;
-      const inH = Math.abs(y - (cy - size * 0.1)) <= bar / 2 && Math.abs(x - cx) <= armH / 2;
-      const c = inV || inH ? fg : bg;
+      const sum = [0, 0, 0];
+      for (let j = 0; j < S; j++)
+        for (let i = 0; i < S; i++) {
+          const c = colorAt((x + (i + 0.5) / S) / size, (y + (j + 0.5) / S) / size);
+          sum[0] += c[0]; sum[1] += c[1]; sum[2] += c[2];
+        }
       const o = y * (size * 3 + 1) + 1 + x * 3;
-      raw[o] = c[0]; raw[o + 1] = c[1]; raw[o + 2] = c[2];
+      for (let k = 0; k < 3; k++) raw[o + k] = Math.round(sum[k] / (S * S));
     }
   }
   const ihdr = Buffer.alloc(13);
