@@ -110,6 +110,8 @@ button, .file-btn, select, input, textarea {
   padding: 10px 14px; min-height: 44px;
 }
 input, textarea, select { width: 100%; }
+/* iPhone Safari zooms in on fields with text under 16 px. Labels are smaller, so fix the field size here. */
+input, textarea, select { font-size: 17px; }
 input[type="checkbox"] { width: auto; min-height: 0; }
 textarea { resize: vertical; }
 button, .file-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
@@ -147,6 +149,7 @@ label.check { flex-direction: row; align-items: center; gap: 6px; }
 
 @media (min-width: 700px) {
   body { font-size: 18px; }
+  input, textarea, select { font-size: 18px; }
   .main { padding-top: 32px; }
 }
 /* Short screens (phone on its side): keep the tab bar slim. */

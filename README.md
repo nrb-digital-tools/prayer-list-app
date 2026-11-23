@@ -34,7 +34,7 @@ You can change the target, wild cards, and hard limit in Settings.
 - **List points.** Give a point a list (one item per line, for example a list of communities).
   Each time you pray for the point, the next item shows. After the last item, it starts again.
 - **Theme.** Light, Dark, or Match phone (Settings > Appearance).
-- **Guaranteed daily.** Mark a point "Guaranteed daily". It shows every day, outside the rotation. It does not use up your points per day.
+- **Guaranteed daily.** Mark a point "Guaranteed daily". It shows first, once every day, outside the rotation.
 - **Keep praying.** When the session is done, tap "Keep praying" to get one more point at a time.
 - **Stats and streak.** Minutes per day, week, and month, and a daily streak. Minutes count while a card is open (up to 15 min per card).
 - **Updates.** Add dated notes to one point, so you do not need a new point each time.

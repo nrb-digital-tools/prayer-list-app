@@ -102,7 +102,7 @@ export function PointForm({ id, done }: { id?: string; done: (id?: string) => vo
         <input type="checkbox" checked={daily} onChange={(e) => setDaily((e.target as HTMLInputElement).checked)} />
         <span>
           Guaranteed daily
-          <span class="small muted block">Shows up every day. It is not part of the rotation and does not use up your points per day.</span>
+          <span class="small muted block">Shows up first, once every day. It is not part of the rotation.</span>
         </span>
       </label>
       {!daily && (
