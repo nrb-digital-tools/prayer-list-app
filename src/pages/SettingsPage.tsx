@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { addCategory, deleteCategory, getSettings, listCategories, saveSettings } from "../lib/db";
 import { applyTheme } from "../lib/theme";
+import { ESV_NOTICE } from "../lib/verses";
 import { importBackup, shareBackup } from "../lib/backup";
 import { DEFAULT_SETTINGS, type Category, type Settings, type Theme } from "../lib/types";
 
@@ -124,6 +125,11 @@ export function SettingsPage() {
         {persisted !== undefined && (
           <p class="small muted">Protected storage: {persisted ? "on" : "off (the browser may erase data if the device is low on space)"}.</p>
         )}
+      </div>
+
+      <div class="card stack">
+        <h2>About</h2>
+        <p class="small muted">{ESV_NOTICE}</p>
       </div>
     </section>
   );

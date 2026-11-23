@@ -63,3 +63,8 @@ It takes about 2 minutes. The repo setting Settings > Pages > Source must be "Gi
 - The app reminds you to back up when your last backup is over 7 days old.
 - Tap "Back up now". Choose "Save to Files" (iCloud Drive is a good place).
 - To restore, use "Restore from backup" on the Today screen (when empty) or in Settings.
+
+## Scripture
+Today shows one verse about prayer each day (`src/lib/verses.ts`). To add a verse, add a line to the list.
+
+Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved.

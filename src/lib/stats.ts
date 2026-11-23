@@ -66,7 +66,7 @@ export function minutesToday(logs: PrayerLog[], now: number): number {
 }
 
 // A whole-number index for the local calendar day (safe across daylight saving changes).
-function dayIndex(ms: number): number {
+export function dayIndex(ms: number): number {
   const d = new Date(ms);
   return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
 }

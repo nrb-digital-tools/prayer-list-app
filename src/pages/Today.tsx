@@ -21,6 +21,7 @@ import { BackupBanner } from "../components/BackupBanner";
 import { UrgentControl } from "../components/UrgentControl";
 import { UpdateEntry } from "../components/UpdateEntry";
 import { urgentLabel } from "../lib/urgent";
+import { verseForDay } from "../lib/verses";
 import { currentItem } from "../lib/items";
 import { cadenceLabel, lastPrayedLabel, sameLocalDay } from "../lib/format";
 import { DEFAULT_SETTINGS, type Category, type Point, type PointUpdate, type PrayerLog, type Settings } from "../lib/types";
@@ -182,23 +183,23 @@ export function Today({ go }: { go: Go }) {
   const shownMin = Math.floor(minutes);
   const progress = (
     <div class="progress" aria-label={`${shownMin} of ${settings.targetMinutes} minutes today`}>
-      <div class="row between">
-        <span class="small muted">
-          {shownMin} of {formatMinutes(settings.targetMinutes)} today
-          {session.keepGoing ? " · keep praying" : ""}
-        </span>
-        {current && (
-          <button class={running ? "timer-btn on" : "timer-btn"} onClick={toggleTimer}>
-            {running ? "❚❚ Pause" : "▶ Start"}
-          </button>
-        )}
-      </div>
+      <span class="small muted">
+        {shownMin} of {formatMinutes(settings.targetMinutes)} today
+        {session.keepGoing ? " · keep praying" : ""}
+      </span>
       <div class="bar"><div class="fill" style={{ width: `${Math.min(100, (minutes / settings.targetMinutes) * 100)}%` }} /></div>
+      {current && (
+        <button class={running ? "timer-btn on" : "timer-btn"} onClick={toggleTimer}>
+          {running ? "❚❚ Pause" : "▶ Start praying"}
+        </button>
+      )}
     </div>
   );
   const cat = cats.find((c) => c.id === current?.categoryId);
   const streak = streaks(logs, Date.now());
+  const verse = verseForDay(Date.now());
   const header = (
+    <>
     <div class="row between">
       <h1>Today</h1>
       {streak.current > 0 && (
@@ -207,6 +208,11 @@ export function Today({ go }: { go: Go }) {
         </span>
       )}
     </div>
+    <figure class="verse">
+      <blockquote>“{verse.text}”</blockquote>
+      <figcaption>— {verse.ref} ESV</figcaption>
+    </figure>
+    </>
   );
 
   if (!current) {
@@ -267,7 +273,7 @@ export function Today({ go }: { go: Go }) {
           {urgent && <span class="chip urgent">{urgent}</span>}
         </div>
         <h2 class="point-title">{current.title}</h2>
-        {!running && <p class="small muted timer-hint">Timer paused. Tap ▶ Start to count your prayer time.</p>}
+        {!running && <p class="small muted timer-hint">Timer paused. Tap Start praying to count your prayer time.</p>}
         {current.details && <p class="details">{current.details}</p>}
         {item && (
           <div class="item-box">
