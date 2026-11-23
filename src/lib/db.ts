@@ -162,8 +162,11 @@ export async function deleteCategory(id: string): Promise<void> {
 // ---- Settings and session snapshot (in the "meta" store) ----
 export async function getSettings(): Promise<Settings> {
   const saved = (await (await getDB()).get("meta", "settings")) as Partial<Settings> | undefined;
-  // Drop settings from older versions (priority weights were removed).
-  const { priorityWeights: _old, ...rest } = (saved ?? {}) as Partial<Settings> & { priorityWeights?: unknown };
+  // Drop settings from older versions (priority weights and points per day were removed).
+  const { priorityWeights: _old, sessionSize: _old2, ...rest } = (saved ?? {}) as Partial<Settings> & {
+    priorityWeights?: unknown;
+    sessionSize?: unknown;
+  };
   return { ...DEFAULT_SETTINGS, ...rest };
 }
 
@@ -171,17 +174,28 @@ export async function saveSettings(s: Settings): Promise<void> {
   await (await getDB()).put("meta", s, "settings");
 }
 
-export interface SessionSnapshot {
-  startedAt: number;
-  ids: string[]; // cards in order
-  done: string[]; // marked prayed this session
-  skipped: string[]; // pressed "Later"
-  keepGoing?: boolean; // "Keep praying" mode: one more card appears after each one
-  extraFrom?: number; // index in ids where the extra ("keep praying") cards start
+// One card shown on the Today screen, and what you did with it.
+export interface SessionCard {
+  id: string; // point id (the same point can show more than once a day)
+  result?: "prayed" | "later"; // empty while the card is on screen
 }
 
+// Today's cards. Saved so the app can close and reopen without losing its place.
+export interface SessionSnapshot {
+  version: 2;
+  startedAt: number;
+  cards: SessionCard[]; // in order: daily, wild cards, hard limit, then one at a time
+  roundStart: number; // index in cards where the current round started
+  keepGoing?: boolean; // "Keep praying" after the time target was reached
+  // Prayer timer (Start / Pause). It uses the clock, so it keeps counting when the phone locks or the app closes.
+  timerSince?: number; // running since this time; empty when paused
+  cardMs?: number; // time already counted for the card on screen (from earlier runs)
+}
+
+// Returns undefined for a session saved by an older version (it is rebuilt).
 export async function getSession(): Promise<SessionSnapshot | undefined> {
-  return (await (await getDB()).get("meta", "session")) as SessionSnapshot | undefined;
+  const s = (await (await getDB()).get("meta", "session")) as SessionSnapshot | undefined;
+  return s && s.version === 2 && Array.isArray(s.cards) ? s : undefined;
 }
 
 export async function saveSession(s: SessionSnapshot | undefined): Promise<void> {

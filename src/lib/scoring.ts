@@ -34,75 +34,68 @@ function byOldest(a: Point, b: Point): number {
   return lastPrayed(a) - lastPrayed(b) || a.id.localeCompare(b.id);
 }
 
-// The rotation (the algorithm). Order of picks:
-//   1. Forced: points not prayed for maxGapDays or more (oldest first).
-//   2. Top points by score.
-//   3. Neglect ("wild card") slots: highest ratio, ignoring the urgent boost.
-function pickRotation(points: Point[], s: Settings, now: number): string[] {
-  const eligible = points.filter((p) => isEligible(p));
-  const chosen: Point[] = [];
-  const taken = new Set<string>();
-  const take = (p: Point) => {
-    chosen.push(p);
-    taken.add(p.id);
-  };
-
-  const forced = eligible
-    .filter((p) => now - lastPrayed(p) >= s.maxGapDays * DAY)
-    .sort(byOldest)
-    .slice(0, s.sessionSize);
-  forced.forEach(take);
-
-  const remaining = s.sessionSize - chosen.length;
-  const neglectCount = Math.min(s.neglectSlots, remaining);
-  const scoreCount = remaining - neglectCount;
-
-  eligible
-    .filter((p) => !taken.has(p.id))
-    .sort((a, b) => score(b, now, s) - score(a, now, s) || byOldest(a, b))
-    .slice(0, scoreCount)
-    .forEach(take);
-
-  eligible
-    .filter((p) => !taken.has(p.id))
-    .sort((a, b) => rawRatio(b, now) - rawRatio(a, now) || byOldest(a, b))
-    .slice(0, neglectCount)
-    .forEach(take);
-
-  // If neglect slots found nothing, fill spare room with more top-score points.
-  const spare = s.sessionSize - chosen.length;
-  if (spare > 0) {
-    eligible
-      .filter((p) => !taken.has(p.id))
-      .sort((a, b) => score(b, now, s) - score(a, now, s) || byOldest(a, b))
-      .slice(0, spare)
-      .forEach(take);
-  }
-
-  return chosen.map((p) => p.id);
+// When a point is next due (last prayed + goal gap).
+export function nextDue(p: Point): number {
+  return lastPrayed(p) + p.cadenceDays * DAY;
 }
 
-// Today's list: every "guaranteed daily" point first (once a day), then the rotation.
-// Daily points are NOT part of the rotation and do not use up its slots.
-export function buildSession(points: Point[], s: Settings, now: number): string[] {
+// Due or overdue: the goal gap has passed.
+export function isDue(p: Point, now: number): boolean {
+  return rawRatio(p, now) >= 1;
+}
+
+// Today's first cards, set once when the day starts:
+//   1. Guaranteed daily points not yet prayed today (oldest first by creation).
+//   2. Wild cards: due points prayed longest ago (neglectSlots of them).
+//   3. Hard limit: points not prayed for maxGapDays or more, not already picked (oldest first).
+export function dayStart(points: Point[], s: Settings, now: number): string[] {
   const dailies = points
     .filter((p) => p.daily && isEligible(p) && !(p.lastPrayedAt && sameLocalDay(p.lastPrayedAt, now)))
-    .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
-    .map((p) => p.id);
-  const rotation = pickRotation(points.filter((p) => !p.daily), s, now);
-  return [...dailies, ...rotation];
+    .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+  const rotation = points.filter((p) => !p.daily && isEligible(p));
+  const wild = rotation
+    .filter((p) => isDue(p, now))
+    .sort(byOldest)
+    .slice(0, Math.max(0, s.neglectSlots));
+  const taken = new Set(wild.map((p) => p.id));
+  const forced = rotation
+    .filter((p) => !taken.has(p.id) && now - lastPrayed(p) >= s.maxGapDays * DAY)
+    .sort(byOldest);
+  return [...dailies, ...wild, ...forced].map((p) => p.id);
 }
 
-// "Keep praying": the next single point from the rotation, skipping ids already shown.
-// Every 4th extra card is a neglect (wild card) pick: the most overdue point, ignoring the urgent boost.
-export function nextExtra(
-  points: Point[],
-  s: Settings,
-  now: number,
-  exclude: string[],
-  extraCount: number,
-): string | undefined {
-  const pool = points.filter((p) => !p.daily && !exclude.includes(p.id));
-  const one: Settings = { ...s, sessionSize: 1, neglectSlots: extraCount % 4 === 3 ? 1 : 0 };
-  return pickRotation(pool, one, now)[0];
+// What has happened in the current round (a round = every non-daily point once).
+export interface Round {
+  shown: string[]; // ids shown in this round, in order (a point can appear twice if it was postponed)
+  later: string[]; // ids postponed with "Later" in this round, in the order they were postponed
+}
+
+// The next card after the day-start cards. Guaranteed daily points are never picked here.
+//   a. Due, overdue, or urgent points not yet shown in this round, by score (highest first).
+//   b. Points postponed with "Later" in this round that have not come back yet (first postponed first).
+//      Each comes back once per round. A second "Later" waits for the next round.
+//   c. Not-yet-due points not yet shown in this round, by next due date (soonest first).
+// The card just shown is never picked again right away if another card is available
+// (so "Later" never brings the same card straight back).
+// Returns "newRound" when every point has had its turn, and undefined when there are no points at all.
+export function nextCard(points: Point[], s: Settings, now: number, round: Round): string | "newRound" | undefined {
+  const pool = points.filter((p) => !p.daily && isEligible(p));
+  if (pool.length === 0) return undefined;
+  const shown = new Set(round.shown);
+  const fresh = pool.filter((p) => !shown.has(p.id));
+
+  const due = fresh
+    .filter((p) => isDue(p, now) || isUrgent(p, now))
+    .sort((a, b) => score(b, now, s) - score(a, now, s) || byOldest(a, b));
+  const ids = new Set(pool.map((p) => p.id));
+  const timesShown = (id: string) => round.shown.filter((x) => x === id).length;
+  const back = round.later.filter((id, i) => ids.has(id) && round.later.indexOf(id) === i && timesShown(id) === 1);
+  const notDue = fresh
+    .filter((p) => !due.includes(p))
+    .sort((a, b) => nextDue(a) - nextDue(b) || a.id.localeCompare(b.id));
+
+  const order = [...due.map((p) => p.id), ...back, ...notDue.map((p) => p.id)];
+  if (order.length === 0) return "newRound";
+  const last = round.shown[round.shown.length - 1];
+  return order.find((id) => id !== last) ?? order[0];
 }

@@ -192,3 +192,12 @@ table.data th:not(:first-child), table.data td:not(:first-child) { text-align: r
 .remove-choices button { padding: 8px 12px; min-height: 40px; font-size: 0.95rem; }
 .latest.answered { border-left-color: var(--urgent); }
 section > h2 { margin: 18px 0 6px; }
+
+/* Today: minutes toward the daily target */
+.progress { margin: 4px 0 12px; }
+.progress .bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 4px; }
+.progress .fill { height: 100%; background: var(--sunset); border-radius: 99px; transition: width 0.4s; }
+.card.center .progress { text-align: left; }
+.timer-btn { padding: 6px 14px; min-height: 36px; font-size: 0.95rem; font-weight: 600; }
+.timer-btn.on { background: var(--sky); border-color: var(--sky); color: var(--card); }
+.timer-hint { margin: 0 0 8px; color: var(--urgent); }

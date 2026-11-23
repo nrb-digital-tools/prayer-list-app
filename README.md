@@ -7,18 +7,28 @@ It works offline. Your data stays on your phone.
 **Open the app:** https://nrb-digital-tools.github.io/prayer-list-app/
 
 ## How the daily list works
-Each point has a target gap (for example, every 7 days).
-When you start a session, the app gives each point a score:
+Today has a **time target** (default 30 minutes a day). Cards keep coming until you reach it.
+
+The order of the cards:
+1. **Guaranteed daily** points.
+2. **Wild cards** (default 2): due points that you prayed for longest ago.
+3. Points not prayed for 60 days or more (the hard limit).
+4. Then one card at a time:
+   - due, overdue, and urgent points, by score;
+   - points you tapped **Later**, once each;
+   - points that are not due yet, soonest first.
+5. When every point has had a turn, a new round starts. Guaranteed daily points do not come back the same day.
+
+The score of a point:
 
     score = (time since prayed / target gap) + urgent boost
 
-- The top points by score fill most cards.
-- A few "wild card" cards ignore the urgent boost. They pick the points that are most overdue.
-- A hard limit (default 60 days) forces any very old point into the session.
-- "Later" does not reset the score. The point comes back.
-- "Prayed" resets the score to 0.
+**Prayer time.** Tap **▶ Start** when you begin to pray and **❚❚ Pause** when you stop.
+The timer uses the clock, so it keeps counting when the phone locks.
+Only time on cards you mark **Prayed** counts, at most 30 minutes per card.
 
-You can change the points per day, wild card slots, and hard limit in Settings.
+When you reach the target, you can tap **Keep praying**. It goes on with the same order and never runs out.
+You can change the target, wild cards, and hard limit in Settings.
 
 ## Other features
 - **List points.** Give a point a list (one item per line, for example a list of communities).

@@ -60,6 +60,11 @@ export function buckets(logs: PrayerLog[], range: Range, now: number, count = RA
   return out;
 }
 
+// Minutes prayed today (time on cards marked Prayed, as on the Stats tab).
+export function minutesToday(logs: PrayerLog[], now: number): number {
+  return buckets(logs, "day", now, 1)[0].minutes;
+}
+
 // A whole-number index for the local calendar day (safe across daylight saving changes).
 function dayIndex(ms: number): number {
   const d = new Date(ms);

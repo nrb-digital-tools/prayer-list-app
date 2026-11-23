@@ -49,8 +49,8 @@ export interface PrayerLog {
 }
 
 export interface Settings {
-  sessionSize: number;
-  neglectSlots: number;
+  targetMinutes: number; // daily prayer time target. Today ends its list when this is reached.
+  neglectSlots: number; // wild cards: due points prayed longest ago, right after the daily points
   maxGapDays: number; // hard ceiling: older points are forced into the session
   urgencyBoost: number;
   ratioCap: number; // limits how large one point's ratio can grow
@@ -58,7 +58,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  sessionSize: 8,
+  targetMinutes: 30,
   neglectSlots: 2,
   maxGapDays: 60,
   urgencyBoost: 3,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { addCategory, deleteCategory, getSettings, listCategories, saveSession, saveSettings } from "../lib/db";
+import { addCategory, deleteCategory, getSettings, listCategories, saveSettings } from "../lib/db";
 import { applyTheme } from "../lib/theme";
 import { importBackup, shareBackup } from "../lib/backup";
 import { DEFAULT_SETTINGS, type Category, type Settings, type Theme } from "../lib/types";
@@ -25,9 +25,8 @@ export function SettingsPage() {
 
   async function change(next: Settings) {
     setS(next);
+    // The time target applies at once. Wild cards and the hard limit apply from tomorrow's list.
     await saveSettings(next);
-    // Daily-list settings apply to today's list at once: it is rebuilt the next time you open Today.
-    if (next.theme === s.theme) await saveSession(undefined);
   }
 
   async function pickTheme(theme: Theme) {
@@ -82,18 +81,19 @@ export function SettingsPage() {
 
       <div class="card stack">
         <h2>Daily session</h2>
-        <p class="small muted">Changes apply to today's list right away. Guaranteed daily points are extra and do not count here.</p>
         <label>
-          Points per day (from the rotation)
-          <input type="number" min={1} value={s.sessionSize} onChange={(e) => change({ ...s, sessionSize: Math.round(num((e.target as HTMLInputElement).value, 1, s.sessionSize)) })} />
+          Prayer time target (minutes per day)
+          <input type="number" min={1} value={s.targetMinutes} onChange={(e) => change({ ...s, targetMinutes: Math.round(num((e.target as HTMLInputElement).value, 1, s.targetMinutes)) })} />
+          <span class="small muted">Today brings cards until you reach this. Only time on cards you mark Prayed counts. Then you can keep praying.</span>
         </label>
         <label>
-          Wild card slots (the most overdue points, even if other points are urgent)
+          Wild cards (due points prayed longest ago, shown right after the daily points)
           <input type="number" min={0} value={s.neglectSlots} onChange={(e) => change({ ...s, neglectSlots: Math.round(num((e.target as HTMLInputElement).value, 0, s.neglectSlots)) })} />
         </label>
         <label>
           Hard limit: always include a point not prayed for this many days
           <input type="number" min={1} value={s.maxGapDays} onChange={(e) => change({ ...s, maxGapDays: Math.round(num((e.target as HTMLInputElement).value, 1, s.maxGapDays)) })} />
+          <span class="small muted">Wild cards and the hard limit apply from tomorrow's list.</span>
         </label>
         <button onClick={() => change({ ...DEFAULT_SETTINGS, theme: s.theme })}>Reset to defaults</button>
       </div>

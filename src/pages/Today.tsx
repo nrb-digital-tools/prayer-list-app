@@ -15,41 +15,27 @@ import {
   type SessionSnapshot,
   savePoint,
 } from "../lib/db";
-import { buildSession, nextExtra } from "../lib/scoring";
-import { streaks } from "../lib/stats";
+import { addMissingDailies, addNext, cardSeconds, currentIndex, newDay, pauseTimer, record, resetCardTime, startTimer, targetReached } from "../lib/session";
+import { formatMinutes, minutesToday, streaks } from "../lib/stats";
 import { BackupBanner } from "../components/BackupBanner";
 import { UrgentControl } from "../components/UrgentControl";
 import { UpdateEntry } from "../components/UpdateEntry";
 import { urgentLabel } from "../lib/urgent";
 import { currentItem } from "../lib/items";
 import { cadenceLabel, lastPrayedLabel, sameLocalDay } from "../lib/format";
-import type { Category, Point, PointUpdate, PrayerLog } from "../lib/types";
+import { DEFAULT_SETTINGS, type Category, type Point, type PointUpdate, type PrayerLog, type Settings } from "../lib/types";
 
-// Time on a card counts as prayer time, up to this much per card.
-const MAX_CARD_SECONDS = 15 * 60;
-
-// Build a new session (daily points first, then the rotation).
-async function startSession(): Promise<SessionSnapshot> {
-  const [points, settings] = await Promise.all([listPoints(), getSettings()]);
+// If no card is waiting, add the next one, unless today's time target is reached
+// (then the target screen shows, until you tap "Keep praying").
+function fill(snap: SessionSnapshot, all: Point[], settings: Settings, logs: PrayerLog[]): SessionSnapshot {
   const now = Date.now();
-  const snap: SessionSnapshot = {
-    startedAt: now,
-    ids: buildSession(points, settings, now),
-    done: [],
-    skipped: [],
-  };
-  await saveSession(snap);
-  return snap;
-}
-
-// "Keep praying": add the next single point. If nothing is left, turn the mode off.
-async function appendNext(snap: SessionSnapshot): Promise<SessionSnapshot> {
-  const [points, settings] = await Promise.all([listPoints(), getSettings()]);
-  const extraFrom = snap.extraFrom ?? snap.ids.length;
-  const id = nextExtra(points, settings, Date.now(), snap.ids, snap.ids.length - extraFrom);
-  return id
-    ? { ...snap, extraFrom, keepGoing: true, ids: [...snap.ids, id] }
-    : { ...snap, extraFrom, keepGoing: false };
+  const active = new Set(all.filter((p) => p.status === "active").map((p) => p.id));
+  if (currentIndex(snap, (id) => active.has(id)) !== -1) return snap;
+  let next = snap;
+  if (snap.keepGoing || !targetReached(minutesToday(logs, now), settings)) next = addNext(snap, all, settings, now);
+  // No card left (target reached, or nothing to show): pause the timer, so waiting time does not count.
+  if (currentIndex(next, (id) => active.has(id)) === -1) next = { ...pauseTimer(next, now), cardMs: 0 };
+  return next;
 }
 
 // A card shows this many updates at first. "Show all" shows the rest.
@@ -64,55 +50,43 @@ export function Today({ go }: { go: Go }) {
   const [showAll, setShowAll] = useState(false);
   const [note, setNote] = useState("");
   const [adding, setAdding] = useState(false);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [, setTick] = useState(0);
 
   async function reloadPoints() {
-    const [all, c, l] = await Promise.all([listPoints(), listCategories(), listLogs()]);
+    const [all, c, l, st] = await Promise.all([listPoints(), listCategories(), listLogs(), getSettings()]);
     setPoints(new Map(all.map((p) => [p.id, p])));
     setCats(c);
     setLogs(l);
-    return all;
+    setSettings(st);
+    return { all, logs: l, settings: st };
+  }
+
+  // Start (or continue) today's cards. A session from an earlier day, or from an older app version, starts over.
+  async function load(forceNewDay = false) {
+    const data = await reloadPoints();
+    let s = forceNewDay ? undefined : await getSession();
+    if (!s || !sameLocalDay(s.startedAt, Date.now())) s = newDay(data.all, data.settings, Date.now());
+    else s = addMissingDailies(s, data.all, Date.now());
+    await update(fill(s, data.all, data.settings, data.logs));
   }
 
   useEffect(() => {
-    (async () => {
-      await reloadPoints();
-      let s = await getSession();
-      // A session from an earlier day is stale. An empty one is too (points may be added since).
-      if (!s || s.ids.length === 0 || !sameLocalDay(s.startedAt, Date.now())) s = await startSession();
-      setSession(s);
-    })();
+    load();
   }, []);
 
-  const pending = session
-    ? session.ids.filter(
-        (id) => !session.done.includes(id) && !session.skipped.includes(id) && points.get(id)?.status === "active",
-      )
-    : [];
-  const current = pending.length ? points.get(pending[0]) : undefined;
+  const index = session ? currentIndex(session, (id) => points.get(id)?.status === "active") : -1;
+  const current = index >= 0 ? points.get(session!.cards[index].id) : undefined;
 
-  // Prayer time: seconds the app is open and visible while a card is showing.
-  const timer = useRef<{ ms: number; since: number | null }>({ ms: 0, since: null });
+  // Prayer time for the card on screen, from the Start / Pause timer.
+  const elapsedSeconds = () => (session ? cardSeconds(session, Date.now()) : 0);
+  const running = session?.timerSince !== undefined;
+  // Redraw every 5 seconds while the timer runs, so the minutes line stays current.
   useEffect(() => {
-    timer.current = { ms: 0, since: document.visibilityState === "visible" ? Date.now() : null };
-  }, [current?.id]);
-  useEffect(() => {
-    const onVisibility = () => {
-      const t = timer.current;
-      if (document.visibilityState === "hidden") {
-        if (t.since !== null) t.ms += Date.now() - t.since;
-        t.since = null;
-      } else if (t.since === null) {
-        t.since = Date.now();
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
-  const elapsedSeconds = () => {
-    const t = timer.current;
-    const ms = t.ms + (t.since !== null ? Date.now() - t.since : 0);
-    return Math.min(Math.round(ms / 1000), MAX_CARD_SECONDS);
-  };
+    if (!running) return;
+    const t = setInterval(() => setTick((n) => n + 1), 5_000);
+    return () => clearInterval(t);
+  }, [running]);
 
   useEffect(() => {
     setUpdates([]);
@@ -121,7 +95,7 @@ export function Today({ go }: { go: Go }) {
     setNote("");
     // Only open updates show on the card. Answered ones are kept on the point page and the Answered tab.
     if (current) listUpdates(current.id).then((u) => setUpdates(u.filter((x) => !x.answeredAt)));
-  }, [current?.id]);
+  }, [index, current?.id]);
 
   async function update(next: SessionSnapshot) {
     setSession(next);
@@ -140,33 +114,36 @@ export function Today({ go }: { go: Go }) {
     }
   }
 
-  const prayed = () =>
-    once(async () => {
-      if (!session || !current) return;
-      await markPrayed(current.id, Date.now(), elapsedSeconds());
-      await reloadPoints();
-      let next = { ...session, done: [...session.done, current.id] };
-      if (next.keepGoing) next = await appendNext(next);
-      await update(next);
-    });
+  // Save what you did with the card on screen, then bring the next card (if any).
+  async function finish(result: "prayed" | "later") {
+    if (!session || !current) return;
+    const now = Date.now();
+    // Only Prayed cards keep their time. The next card starts at 0 (the timer keeps running if it was).
+    if (result === "prayed") await markPrayed(current.id, now, cardSeconds(session, now));
+    const data = await reloadPoints();
+    await update(fill(resetCardTime(record(session, index, result), now), data.all, data.settings, data.logs));
+  }
+  const prayed = () => once(() => finish("prayed"));
+  const later = () => once(() => finish("later"));
 
-  const later = () =>
-    once(async () => {
-      if (!session || !current) return;
-      let next = { ...session, skipped: [...session.skipped, current.id] };
-      if (next.keepGoing) next = await appendNext(next);
-      await update(next);
-    });
-
+  // After the target: one more card at a time, until you stop. It never runs out (it starts new rounds).
   async function keepPraying() {
     if (!session) return;
-    await update(await appendNext(session));
+    const data = await reloadPoints();
+    await update(fill({ ...session, keepGoing: true }, data.all, data.settings, data.logs));
   }
 
-  // Leave "keep praying" mode. The extra card on screen has not been prayed, so drop it.
+  async function toggleTimer() {
+    if (!session) return;
+    const now = Date.now();
+    await update(running ? pauseTimer(session, now) : startTimer(session, now));
+  }
+
+  // Leave "keep praying" mode. The card on screen has not been prayed, so drop it.
   async function stop() {
-    if (!session || !current) return;
-    await update({ ...session, keepGoing: false, ids: session.ids.filter((id) => id !== current.id) });
+    if (!session) return;
+    const cards = index >= 0 ? session.cards.filter((_, j) => j !== index) : session.cards;
+    await update({ ...pauseTimer(session, Date.now()), keepGoing: false, cards, cardMs: 0 });
   }
 
   // Save a change to the point on screen (used by the Urgent control).
@@ -194,18 +171,31 @@ export function Today({ go }: { go: Go }) {
     setUpdates((list) => list.filter((x) => x.id !== u.id));
   }
 
-  async function fresh() {
-    setSession(await startSession());
-  }
-
   async function restored() {
-    await reloadPoints();
-    setSession(await startSession());
+    await load(true);
   }
 
   if (!session) return <p class="muted">Loading…</p>;
 
-  const total = session.ids.length;
+  const prayedToday = session.cards.filter((c) => c.result === "prayed").length;
+  const minutes = minutesToday(logs, Date.now()) + (current ? elapsedSeconds() / 60 : 0);
+  const shownMin = Math.floor(minutes);
+  const progress = (
+    <div class="progress" aria-label={`${shownMin} of ${settings.targetMinutes} minutes today`}>
+      <div class="row between">
+        <span class="small muted">
+          {shownMin} of {formatMinutes(settings.targetMinutes)} today
+          {session.keepGoing ? " · keep praying" : ""}
+        </span>
+        {current && (
+          <button class={running ? "timer-btn on" : "timer-btn"} onClick={toggleTimer}>
+            {running ? "❚❚ Pause" : "▶ Start"}
+          </button>
+        )}
+      </div>
+      <div class="bar"><div class="fill" style={{ width: `${Math.min(100, (minutes / settings.targetMinutes) * 100)}%` }} /></div>
+    </div>
+  );
   const cat = cats.find((c) => c.id === current?.categoryId);
   const streak = streaks(logs, Date.now());
   const header = (
@@ -220,32 +210,42 @@ export function Today({ go }: { go: Go }) {
   );
 
   if (!current) {
-    const ranOut = session.extraFrom !== undefined && !session.keepGoing;
+    const reached = targetReached(minutesToday(logs, Date.now()), settings);
+    const noPoints = points.size === 0;
     return (
       <section>
         {header}
         <BackupBanner onRestored={restored} />
-        {total === 0 ? (
+        {noPoints ? (
           <div class="card center">
             <p>You have no points to pray for yet.</p>
             <button class="primary" onClick={() => go({ page: "form", from: "today" })}>Add your first point</button>
           </div>
         ) : (
-          <div class="card center">
-            <p class="big">🙏 Session complete</p>
-            <p class="muted">
-              {session.done.length} prayed
-              {session.skipped.length ? `, ${session.skipped.length} saved for later` : ""}.
-            </p>
-            {ranOut && <p class="muted">Nothing else is waiting right now. Well done.</p>}
+          <div class="card center stack">
+            {progress}
+            {reached ? (
+              <>
+                <p class="big">🙏 You reached today's {formatMinutes(settings.targetMinutes)}</p>
+                <p class="muted">{prayedToday === 1 ? "1 prayer" : `${prayedToday} prayers`} today.</p>
+              </>
+            ) : (
+              <>
+                <p class="big">🙏 You prayed for every point today</p>
+                <p class="muted">Add more points, or come back tomorrow.</p>
+              </>
+            )}
             {streak.current > 0 && (
               <p class="muted small">
                 🔥 {streak.current}-day streak{streak.prayedToday ? "" : " (pray for one point today to keep it)"}
               </p>
             )}
-            <button class="primary" onClick={keepPraying}>Keep praying</button>
-            <button onClick={fresh}>Start a fresh session</button>
-            <p class="muted small">“Keep praying” brings one more point at a time, until you stop.</p>
+            {reached && (
+              <>
+                <button class="primary" onClick={keepPraying}>Keep praying</button>
+                <p class="muted small">“Keep praying” brings one more point at a time, until you stop.</p>
+              </>
+            )}
           </div>
         )}
       </section>
@@ -254,16 +254,12 @@ export function Today({ go }: { go: Go }) {
 
   const urgent = urgentLabel(current, Date.now());
   const item = currentItem(current);
-  const index = session.ids.indexOf(current.id);
-  const isExtra = session.extraFrom !== undefined && index >= session.extraFrom;
 
   return (
     <section>
       {header}
       <BackupBanner onRestored={restored} />
-      <p class="muted small">
-        {isExtra ? `Keep praying · extra card ${index - session.extraFrom! + 1}` : `Card ${index + 1} of ${session.extraFrom ?? total}`}
-      </p>
+      {progress}
       <div class="card">
         <div class="chips">
           {current.daily && <span class="chip">Daily</span>}
@@ -271,6 +267,7 @@ export function Today({ go }: { go: Go }) {
           {urgent && <span class="chip urgent">{urgent}</span>}
         </div>
         <h2 class="point-title">{current.title}</h2>
+        {!running && <p class="small muted timer-hint">Timer paused. Tap ▶ Start to count your prayer time.</p>}
         {current.details && <p class="details">{current.details}</p>}
         {item && (
           <div class="item-box">
